@@ -1,0 +1,228 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+---
+title: "CODE FOR BWT AND BIT CALCULATOR"
+output:
+      pdf_document: default
+html_document: default
+date: "2022-10-25"
+---
+#RUN BWT FOR THESE SEQUENCES:
+GATTACA
+ATTACATTAC
+ATATATATATA
+ATATATATAT
+AATAATAATAAT
+AAAATAAATAAA
+ATATACACACA
+ATATGTATACAT
+
+```{r}
+rm(list=ls())
+```
+
+```{r}
+#add libraries
+library(stringr) #load stringr
+library(R.utils) #load R.utils
+```
+
+```{r}
+#In this RMD file, the sequence of interest in GATTACA
+
+#defining the string and pasting $
+string<- 'GATTACA'
+string1<- paste("$", string, sep="")
+string_length<- str_length(string1)
+print(paste("The sequence with the $ is:",string1,sep=" "))
+
+```
+
+```{r}
+#---ENCODING---#
+
+#shifting the position of $
+shifter<- function(dnastring, n) {
+  n <- n%%nchar(dnastring)
+  if (n==0) {dnastring}
+  else {paste0 (substr(dnastring, nchar(dnastring)-n+1, nchar(dnastring)), substr(dnastring, 1, nchar(dnastring)-n))}
+}
+```
+
+  
+```{r}
+#for loop to move $
+for(x in 1:(string_length)){
+  
+  num<- shifter(string1, -x) 
+  if(x==1){encoded_seq<- character()}
+  encoded_seq<- c(encoded_seq, num)
+}
+```
+
+```{r}
+#creating a matrix
+
+#sort the vector lexicographically
+sorted_vector<- sort(encoded_seq)
+
+#split the vector after every nucleotide
+split_vector<- strsplit(sorted_vector, "")
+
+#unlist the vector, so it can be made into a matrix
+unlisted_vector<- unlist(split_vector)
+
+#create and print matrix
+BWTmatrix<- matrix(unlisted_vector, byrow=TRUE, ncol=string_length, nrow=string_length)
+#extracting last column
+final_encoded<- BWTmatrix[,string_length]
+
+print(BWTmatrix)
+
+print ("The encoded sequence is:")
+final_encoded
+```
+
+
+
+```{r}
+#---COMPRESSION---#
+
+#compress the final_encoded sequence (last column)
+compress <- rle(final_encoded) #rle (Run length encoding): the output of compress is a list and the input is a vector
+compressed_string <- paste(compress$values, compress$lengths, collapse = "", sep = "") #collapse removes empty spaces between characters in the vector and sep"" and the output is a vector of lenght 1 
+
+print(compressed_string)
+
+#remove the values for single bases
+remove_single_values <- gsub('[1]',"",compressed_string)
+
+print(paste("The final compressed encoded sequence is:",remove_single_values,sep=" "))
+```
+
+```{r}
+#---DECODING (part 1)---#
+
+# Part 1: Creates a matrix "ReverseBWTtable with the first column being the encoded sequence: "final_encoded"
+n<-length(final_encoded) 
+
+ReverseBWTtable<-matrix(,nrow=n,ncol=n)# Creating an empty matrix
+
+for (x in 1:n) #filling the first column of the matrix with the "final_encoded" sequence
+{
+  ReverseBWTtable[x,1]<-final_encoded[x]
+}
+  
+ReverseBWTtable 
+```
+
+```{r}
+#---DECODING--- (part 2)#
+# Part 2: Filling the ReverseBWTtable with the add/sort feature with the final column having the original sequence with the $ at the beginning. 
+for (i in 1:n)
+{
+  if(i==n){
+    ReverseBWTtable[,n]<-sort(ReverseBWTtable[,n])
+    break
+  }
+  c<-ReverseBWTtable[,i]
+  c<-sort(c)
+  ReverseBWTtable[,i+1]<-paste(final_encoded,c,sep = "")
+  
+}
+Decoded_seq<-ReverseBWTtable[1,length(final_encoded)] 
+ReverseBWTtable 
+
+print(paste("The decoded sequence is:",Decoded_seq,sep=" "))
+
+#Removing the $ sign if we want to see the original string without a marker
+final_decoded<- gsub('[^[:alnum:] ]','',Decoded_seq)
+
+print(paste("The decoded sequence without the $ sign is:",final_decoded,sep=" "))
+```
+
+
+```{r}
+#---BIT CALCULATOR---#
+
+#creating the ASCII code table 33:126
+
+decimals<-(33:126) #creating the list of decimals
+
+Hex<-as.raw(decimals) #creating Hexadecimal "Hex" values from the decimals. as.raw is in the base package.
+
+Char<-rawToChar(Hex, multiple=TRUE) # changing "Hex" Values to character "Char" values
+
+ASCII_code<- data.frame(Char=Char, dec=decimals) #creating the ASCII_code table (data frame on R) which is made of decimals and characters only
+
+View(ASCII_code)
+
+# the functions were adopted from online sources
+```
+
+```{r}
+#Creating the function "shift2Bits" that returns the number of bits in a DNA/RNA sequence.
+
+shift2Bits<- function(DNASeq)
+{
+  bits=0 #bits is the variable that shows the number of bits in the sequence. This is set to zero before the count.
+  
+  
+#to find the decimal values from multiple characters (string) in the decoded or encoded sequence
+Length<-nrow(ASCII_code) # number of rows in the ASCII_code data frame
+strlength<-nchar(DNASeq) # The number of characters "Nucleotides" in the sequence
+
+for (y in 1:strlength)
+  {
+  
+  Nuc<-substr(DNASeq,y,y) #creates the "Nucleotide" character that will be converted into a binary value-->base::substr. We specified (y,y) to convert each Nucleotide or character at each iteration in the for loop.
+
+  
+# This for loop scans the ASCII-code to find the corresponding decimal value "dec_val" for the variable Nuc. 
+for (x in 1:Length)
+{
+  if (ASCII_code[x,1]== Nuc)  
+  {
+    dec_val<-ASCII_code[x,2]
+  }
+}
+#change the dec_val into a binary value
+Bin<-intToBin(dec_val)# the intToBin function is from the package "R.utils".
+
+digits<-nchar(Bin) # digits counts the number of 0 and 1 in Bin.
+
+bits= digits+bits # the number of bits for one character in the sequence.
+
+}
+print(DNASeq)  
+
+print (paste("The Sequence of interest","has",bits,"bits",sep=" "))
+}
+
+```
+
+
+```{r}
+##Applying the bit calculator "shift2Bits" function to the Encoded and decoded sequences##
+
+Sequence<-data.frame(DNA_Sequence=Decoded_seq, Encoded_sequence=remove_single_values) #data frame (1x2) containing normal (decoded) and encoded sequences.
+for (i in 1:ncol(Sequence))
+{
+
+if (i==1)
+  {
+print("The decoded  or original sequence is:")
+shift2Bits(Sequence[1,i])
+  }
+  else
+  {
+  print("The encoded-compressed sequence is:")
+  
+shift2Bits(Sequence[1,i])
+  }
+}
+```
